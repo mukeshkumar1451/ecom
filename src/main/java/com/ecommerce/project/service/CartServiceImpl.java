@@ -6,6 +6,7 @@ import com.ecommerce.project.modal.Cart;
 import com.ecommerce.project.modal.CartItem;
 import com.ecommerce.project.modal.Product;
 import com.ecommerce.project.payload.CartDTO;
+import com.ecommerce.project.payload.CartItemDTO;
 import com.ecommerce.project.payload.ProductDTO;
 import com.ecommerce.project.repositories.CartItemRepository;
 import com.ecommerce.project.repositories.CartRepository;
@@ -242,5 +243,44 @@ public class CartServiceImpl implements CartService{
         cart.setTotalPrice(cartPrice + (cartItem.getProductPrice() * cartItem.getQuantity()));
 
         cartItem =cartItemRepository.save(cartItem);
+    }
+
+    @Transactional
+    @Override
+    public String createOrUpdateCartWithItems(List<CartItemDTO> cartItems) {
+
+    String emailId = authUtil.loggedInEmail();
+    Cart existingCart = cartRepository.findCartByEmail(emailId);
+    if (existingCart == null) {
+        Cart newCart = new Cart();
+        newCart.setUser(authUtil.loggedInUser());
+        newCart.setTotalPrice(0.0);
+        existingCart = cartRepository.save(newCart);
+    } else {
+        cartItemRepository.deleteAllByCartId(existingCart.getCartId());
+    }
+    double totalPrice = 0.0;
+    for (CartItemDTO itemDTO : cartItems) {
+        Long productId = itemDTO.getProductId();
+        Integer quantity = itemDTO.getQuantity();
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "productId", productId));
+
+       // product.setQuantity(product.getQuantity() - quantity);
+        totalPrice += product.getSpecialPrice() * quantity;
+
+        CartItem cartItem = new CartItem();
+        cartItem.setProduct(product);
+        cartItem.setCart(existingCart);
+        cartItem.setQuantity(quantity);
+        cartItem.setDiscount(product.getDiscount());
+        cartItem.setProductPrice(product.getSpecialPrice());
+        cartItemRepository.save(cartItem);
+    }
+    existingCart.setTotalPrice(totalPrice);
+    cartRepository.save(existingCart);
+    return "Cart created/updated successfully with new items!";
+
     }
 }
