@@ -47,6 +47,7 @@ public class ProductServiceImpl implements ProductService {
     @Value("${project.image}")
     private String path;
 
+
     @Value("${image.base.url}")
     private String imageBaseUrl;
 
@@ -78,11 +79,16 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+
     public ProductResponse getAllProduct(Integer pageNumber, Integer pageSize, String sortBy, String sortOrder, String keyword, String category) {
+
+    public ProductResponse getAllProduct( Integer pageNumber, Integer pageSize, String sortBy, String sortOrder) {
+
         Sort sortByAndOrder = sortOrder.equalsIgnoreCase("asc")
                 ? Sort.by(sortBy).ascending()
                 : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(pageNumber, pageSize, sortByAndOrder);
+
         Specification<Product> spec = Specification.where(null);
         if (keyword != null && !keyword.isEmpty()) {
             spec = spec.and((root, query, criteriaBuilder) ->
@@ -103,6 +109,11 @@ public class ProductServiceImpl implements ProductService {
                     return productDTO1;
                 }).toList();
 
+        Page<Product> productPage = productRepository.findAll(pageable);
+        List<Product> products = productPage.getContent();
+        List<ProductDTO> productDTO = products.stream()
+                .map(product -> modelMapper.map(product, ProductDTO.class)).toList();
+
         if(products.isEmpty()){
             throw new APIException("No Product Found");
         }
@@ -116,9 +127,11 @@ public class ProductServiceImpl implements ProductService {
         return productResponse;
     }
 
+
     private String constructImageUrl(String imageName){
         return imageBaseUrl.endsWith("/") ? imageBaseUrl + imageName : imageBaseUrl + "/" + imageName;
     }
+
 
     @Override
     public ProductResponse searchByCategory(Long categoryId, Integer pageNumber, Integer pageSize, String sortBy, String sortOrder) {
